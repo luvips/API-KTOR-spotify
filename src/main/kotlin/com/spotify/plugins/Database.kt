@@ -9,6 +9,7 @@ import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
 import com.spotify.repository.Users
 import com.spotify.repository.Artists
+import com.spotify.repository.Tracks
 
 fun Application.configureDatabases() {
     val config = environment.config.config("storage")
@@ -35,5 +36,6 @@ fun Application.configureDatabases() {
         SchemaUtils.create(Artists)
         SchemaUtils.create(Users)
         SchemaUtils.create(Albums)
+        SchemaUtils.create(Tracks)
     }
 }
