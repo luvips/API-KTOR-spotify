@@ -41,6 +41,11 @@ dependencies {
 
     // --- AWS S3 (Para subir imágenes) ---
     implementation("aws.sdk.kotlin:s3:1.0.0")
+    implementation("aws.smithy.kotlin:aws-signing-default:1.0.0")
+
+    // --- Ktor Client (Para subir a S3 con URLs prefirmadas) ---
+    implementation("io.ktor:ktor-client-core:3.0.3")
+    implementation("io.ktor:ktor-client-cio:3.0.3")
 
     // --- Logging ---
     implementation("ch.qos.logback:logback-classic:1.4.14")
@@ -59,4 +64,8 @@ tasks {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+application {
+    mainClass.set("io.ktor.server.netty.EngineMain")
 }

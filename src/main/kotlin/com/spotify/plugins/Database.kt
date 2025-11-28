@@ -7,6 +7,7 @@ import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
 import com.spotify.repository.Users
+import com.spotify.repository.Artists
 
 fun Application.configureDatabases() {
     val config = environment.config.config("storage")
@@ -30,6 +31,7 @@ fun Application.configureDatabases() {
 
     // Crear tabla Users si no existe
     transaction(database) {
+        SchemaUtils.create(Artists)
         SchemaUtils.create(Users)
     }
 }
