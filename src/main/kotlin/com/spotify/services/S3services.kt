@@ -1,9 +1,9 @@
-package com.spotify.services // Asegúrate de que el paquete sea correcto
+package com.spotify.services
 
 import aws.sdk.kotlin.services.s3.S3Client
 import aws.sdk.kotlin.services.s3.model.GetObjectRequest
 import aws.sdk.kotlin.services.s3.model.PutObjectRequest
-import aws.sdk.kotlin.services.s3.presigners.presignGetObject // <--- IMPORT CRÍTICO
+import aws.sdk.kotlin.services.s3.presigners.presignGetObject
 import aws.smithy.kotlin.runtime.auth.awscredentials.Credentials
 import aws.smithy.kotlin.runtime.auth.awscredentials.CredentialsProvider
 import aws.smithy.kotlin.runtime.collections.Attributes
