@@ -31,7 +31,9 @@ fun Application.module() {
 
     val albumService = AlbumService(s3Service)
 
+    val songService = SongService(s3Service)
+
     // 3. Rutas
-    configureRouting(authService, artistService, albumService)
+    configureRouting(authService, artistService, albumService, songService)
 }
 
