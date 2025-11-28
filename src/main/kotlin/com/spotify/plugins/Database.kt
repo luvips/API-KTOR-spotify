@@ -1,5 +1,6 @@
 package com.spotify.plugins
 
+import com.spotify.repository.Albums
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.ktor.server.application.*
@@ -33,5 +34,6 @@ fun Application.configureDatabases() {
     transaction(database) {
         SchemaUtils.create(Artists)
         SchemaUtils.create(Users)
+        SchemaUtils.create(Albums)
     }
 }
