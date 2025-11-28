@@ -4,11 +4,11 @@ import io.ktor.server.application.*
 import io.ktor.server.netty.*
 import io.ktor.server.routing.*
 import com.spotify.plugins.*
-import com.spotify.routes.artistRoutes
-import com.spotify.services.AuthService
-import com.spotify.routes.authRoutes
-import com.spotify.services.ArtistService
-import com.spotify.services.S3Service
+import com.spotify.routes.*
+import com.spotify.services.*
+
+
+
 
 fun main(args: Array<String>) = EngineMain.main(args)
 
@@ -17,6 +17,8 @@ fun Application.module() {
     configureSerialization()
     configureDatabases()
     configureSecurity()
+
+
 
     // 2. Servicios
     val secret = environment.config.property("jwt.secret").getString()
@@ -27,10 +29,9 @@ fun Application.module() {
     val s3Service = S3Service(environment.config)
     val artistService = ArtistService(s3Service)
 
+    val albumService = AlbumService(s3Service)
+
     // 3. Rutas
-    routing {
-        authRoutes(authService)
-        artistRoutes(artistService)
-    }
+    configureRouting(authService, artistService, albumService)
 }
 
