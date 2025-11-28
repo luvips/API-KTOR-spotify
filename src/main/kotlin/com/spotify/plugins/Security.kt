@@ -35,10 +35,10 @@ fun Application.configureSecurity() {
                 println("Audiencia en token: $aud")
 
                 if (credential.payload.audience.contains(jwtAudience)) {
-                    println("✅ Token Válido")
+                    println(" Token Válido")
                     JWTPrincipal(credential.payload)
                 } else {
-                    println("❌ Token Inválido: Audiencia no coincide")
+                    println(" Token Inválido: Audiencia no coincide")
                     null
                 }
             }
