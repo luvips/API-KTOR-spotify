@@ -3,18 +3,17 @@ package com.spotify.plugins
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import com.spotify.services.AuthService
-import com.spotify.services.ArtistService
-import com.spotify.services.AlbumService // <--- Nuevo Import
-import com.spotify.routes.authRoutes
-import com.spotify.routes.artistRoutes
-import com.spotify.routes.albumRoutes // <--- Nuevo Import
+import com.spotify.services.*
+import com.spotify.routes.*
 
-// Actualizamos la firma para recibir los 3 servicios
+
+
+// Actualizamos la firma para recibir los 4 servicios
 fun Application.configureRouting(
     authService: AuthService,
     artistService: ArtistService,
-    albumService: AlbumService
+    albumService: AlbumService,
+    songService: SongService
 ) {
     routing {
         get("/") {
@@ -27,7 +26,10 @@ fun Application.configureRouting(
         // 2. Rutas de Artistas
         artistRoutes(artistService)
 
-        // 3. Rutas de Álbumes (NUEVO)
+        // 3. Rutas de Álbumes
         albumRoutes(albumService)
+
+        // 4. Rutas de Canciones
+        songRoutes(songService)
     }
 }
