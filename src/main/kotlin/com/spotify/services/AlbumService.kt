@@ -1,140 +1,57 @@
 package com.spotify.services
 
-import com.spotify.models.Album
-import com.spotify.repository.Albums
-import io.ktor.server.plugins.*
+import com.spotify.models.*
+import com.spotify.models.request.CreateAlbumRequest
+import com.spotify.models.request.UpdateAlbumRequest
+import com.spotify.repository.Albumes
+import com.spotify.repository.Tracks
 import kotlinx.coroutines.Dispatchers
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 import java.util.UUID
 
-class AlbumService(private val s3Service: S3Service) {
+class AlbumService {
 
-    // crear album nuevo
-    suspend fun create(name: String, year: Int, artistId: UUID, imageBytes: ByteArray): Album {
-        // subir portada del album a S3
-        val imageKey = s3Service.uploadFile("album-${UUID.randomUUID()}-$name.jpg", imageBytes, "image/jpeg")
-
-        // guardar en base de datos
-        val newId = dbQuery {
-            val id = UUID.randomUUID()
-            Albums.insert {
-                it[Albums.id] = id
-                it[Albums.name] = name
-                it[Albums.year] = year
-                it[Albums.albumArt] = imageKey
-                it[Albums.artistId] = artistId
-            }
-            id
+    suspend fun create(req: CreateAlbumRequest): Album = dbQuery {
+        val newId = UUID.randomUUID()
+        // req.artistId is already a UUID, we don't need to convert it
+        Albumes.insert {
+            it[id] = newId
+            it[title] = req.title
+            it[releaseYear] = req.releaseYear
+            it[artistId] = req.artistId
         }
-
-        // devolver con url firmada
-        val signedUrl = s3Service.getPresignedUrl(imageKey)
-        return Album(newId, name, year, signedUrl, artistId)
+        Album(newId, req.title, req.releaseYear, req.artistId)
     }
 
-    // obtener todos los albums
-    suspend fun getAll(): List<Album> {
-        val rawList = dbQuery {
-            Albums.selectAll().map {
-                RawAlbumData(
-                    id = it[Albums.id],
-                    name = it[Albums.name],
-                    year = it[Albums.year],
-                    imageKey = it[Albums.albumArt],
-                    artistId = it[Albums.artistId]
-                )
-            }
-        }
-
-        // generar urls firmadas
-        return rawList.map { raw ->
-            val signedUrl = if (raw.imageKey.startsWith("http")) raw.imageKey else s3Service.getPresignedUrl(raw.imageKey)
-            Album(raw.id, raw.name, raw.year, signedUrl, raw.artistId)
+    suspend fun getAll(): List<Album> = dbQuery {
+        Albumes.selectAll().map {
+            Album(it[Albumes.id], it[Albumes.title], it[Albumes.releaseYear], it[Albumes.artistId])
         }
     }
 
-    // filtrar albums por artista
-    suspend fun getByArtistId(artistId: UUID): List<Album> {
-        val rawList = dbQuery {
-            Albums.select { Albums.artistId eq artistId }.map {
-                RawAlbumData(
-                    id = it[Albums.id],
-                    name = it[Albums.name],
-                    year = it[Albums.year],
-                    imageKey = it[Albums.albumArt],
-                    artistId = it[Albums.artistId]
-                )
-            }
-        }
-
-        return rawList.map { raw ->
-            val signedUrl = if (raw.imageKey.startsWith("http")) raw.imageKey else s3Service.getPresignedUrl(raw.imageKey)
-            Album(raw.id, raw.name, raw.year, signedUrl, raw.artistId)
+    suspend fun getById(id: UUID): Album? = dbQuery {
+        Albumes.select { Albumes.id eq id }.singleOrNull()?.let {
+            Album(it[Albumes.id], it[Albumes.title], it[Albumes.releaseYear], it[Albumes.artistId])
         }
     }
 
-    // buscar album por id
-    suspend fun getById(id: UUID): Album? {
-        val raw = dbQuery {
-            Albums.select { Albums.id eq id }.singleOrNull()?.let {
-                RawAlbumData(
-                    id = it[Albums.id],
-                    name = it[Albums.name],
-                    year = it[Albums.year],
-                    imageKey = it[Albums.albumArt],
-                    artistId = it[Albums.artistId]
-                )
-            }
-        } ?: return null
-
-        val signedUrl = if (raw.imageKey.startsWith("http")) raw.imageKey else s3Service.getPresignedUrl(raw.imageKey)
-        return Album(raw.id, raw.name, raw.year, signedUrl, raw.artistId)
+    suspend fun update(id: UUID, req: UpdateAlbumRequest): Album? = dbQuery {
+        Albumes.update({ Albumes.id eq id }) {
+            req.title?.let { t -> it[title] = t }
+            req.releaseYear?.let { r -> it[releaseYear] = r }
+        }
+        getById(id)
     }
 
-    // actualizar album
-    suspend fun update(id: UUID, name: String?, year: Int?, artistId: UUID?, imageBytes: ByteArray?): Album? {
-        // verificar que existe
-        val exists = dbQuery {
-            Albums.select { Albums.id eq id }.singleOrNull()
-        } ?: return null
+    suspend fun delete(id: UUID): Int = dbQuery {
+        // Validation: Do not delete if it has child tracks
+        if (Tracks.select { Tracks.albumId eq id }.count() > 0) return@dbQuery -1
 
-        // subir nueva portada si viene
-        var newImageKey: String? = null
-        if (imageBytes != null) {
-            newImageKey = s3Service.uploadFile("album-${UUID.randomUUID()}.jpg", imageBytes, "image/jpeg")
-        }
-
-        // actualizar campos
-        dbQuery {
-            Albums.update({ Albums.id eq id }) {
-                if (name != null) it[Albums.name] = name
-                if (year != null) it[Albums.year] = year
-                if (artistId != null) it[Albums.artistId] = artistId
-                if (newImageKey != null) it[Albums.albumArt] = newImageKey
-            }
-        }
-
-        return getById(id)
+        val deleted = Albumes.deleteWhere { Albumes.id eq id }
+        if (deleted > 0) 1 else 0
     }
-
-    // eliminar album
-    suspend fun delete(id: UUID): Boolean {
-        val deleted = dbQuery {
-            Albums.deleteWhere { Albums.id eq id }
-        }
-        return deleted > 0
-    }
-
-    // datos temporales del album
-    private data class RawAlbumData(
-        val id: UUID,
-        val name: String,
-        val year: Int,
-        val imageKey: String,
-        val artistId: UUID
-    )
 
     private suspend fun <T> dbQuery(block: suspend () -> T): T =
         newSuspendedTransaction(Dispatchers.IO) { block() }
