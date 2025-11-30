@@ -4,9 +4,7 @@ import java.util.UUID
 
 data class Track(
     val id: UUID,
-    val name: String,
+    val title: String,
     val duration: Int,
-    val previewUrl: String?,
-    val albumId: UUID?,
-    val artistId: UUID
+    val albumId: UUID
 )

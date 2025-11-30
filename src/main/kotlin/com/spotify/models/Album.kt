@@ -4,8 +4,7 @@ import java.util.UUID
 
 data class Album(
     val id: UUID,
-    val name: String,
-    val year: Int,
-    val albumArt: String,
+    val title: String,
+    val releaseYear: Int?,
     val artistId: UUID
 )
