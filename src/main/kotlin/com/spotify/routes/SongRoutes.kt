@@ -1,189 +1,61 @@
 package com.spotify.routes
 
 import com.spotify.services.SongService
+import com.spotify.models.request.CreateTrackRequest
+import com.spotify.models.request.UpdateTrackRequest
 import io.ktor.http.*
-import io.ktor.http.content.*
 import io.ktor.server.application.*
-import io.ktor.server.auth.*
-import io.ktor.server.auth.jwt.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import java.util.UUID
 
-fun Route.songRoutes(songService: SongService) {
+fun Route.songRoutes(service: SongService) {
     route("/tracks") {
-
-        // obtener todas las canciones
-        get("/all") {
+        post {
             try {
-                val tracks = songService.getAllTracks()
-                call.respond(HttpStatusCode.OK, tracks)
+                val req = call.receive<CreateTrackRequest>()
+                call.respond(HttpStatusCode.Created, service.create(req))
             } catch (e: Exception) {
-                call.respond(HttpStatusCode.InternalServerError, "Error al obtener canciones: ${e.message}")
+                call.respond(HttpStatusCode.BadRequest, "Invalid data: ${e.localizedMessage}")
             }
         }
 
-        // buscar cancion por id
+        get {
+            call.respond(service.getAll())
+        }
+
         get("/{id}") {
-            val idParam = call.parameters["id"]
-            if (idParam != null) {
-                try {
-                    val trackId = UUID.fromString(idParam)
-                    val track = songService.getTrackById(trackId)
-                    if (track != null) {
-                        call.respond(HttpStatusCode.OK, track)
-                    } else {
-                        call.respond(HttpStatusCode.NotFound, "Canción no encontrada")
-                    }
-                } catch (e: IllegalArgumentException) {
-                    call.respond(HttpStatusCode.BadRequest, "ID inválido")
-                }
-            } else {
-                call.respond(HttpStatusCode.BadRequest, "Falta el ID de la canción")
+            try {
+                val id = UUID.fromString(call.parameters["id"])
+                val item = service.getById(id)
+                if (item != null) call.respond(item) else call.respond(HttpStatusCode.NotFound)
+            } catch (e: IllegalArgumentException) {
+                call.respond(HttpStatusCode.BadRequest, "Invalid ID")
             }
         }
 
-        // crear cancion (solo admin)
-        authenticate("auth-jwt") {
-            post {
-                val principal = call.principal<JWTPrincipal>()
-                val role = principal?.payload?.getClaim("role")?.asString()
-
-                if (role != "ADMIN") {
-                    call.respond(HttpStatusCode.Forbidden, "No tienes permisos de administrador")
-                    return@post
-                }
-
-                try {
-                    val multipart = call.receiveMultipart()
-                    var name = ""
-                    var duration = 0
-                    var albumId: UUID? = null
-                    var artistId: UUID? = null
-                    var audioBytes: ByteArray? = null
-
-                    multipart.forEachPart { part ->
-                        when (part) {
-                            is PartData.FormItem -> {
-                                when (part.name) {
-                                    "name" -> name = part.value
-                                    "duration" -> duration = part.value.toIntOrNull() ?: 0
-                                    "albumId" -> albumId = try { UUID.fromString(part.value) } catch (e: Exception) { null }
-                                    "artistId" -> artistId = try { UUID.fromString(part.value) } catch (e: Exception) { null }
-                                }
-                            }
-                            is PartData.FileItem -> {
-                                if (part.name == "audio") { // Campo 'audio' en el form-data
-                                    audioBytes = part.streamProvider().readBytes()
-                                }
-                            }
-                            else -> part.dispose()
-                        }
-                        part.dispose()
-                    }
-
-                    // validar y crear
-                    if (name.isNotEmpty() && artistId != null && audioBytes != null) {
-                        val createdTrack = songService.createTrack(name, duration, albumId!!, artistId!!, audioBytes!!)
-                        call.respond(HttpStatusCode.Created, createdTrack)
-                    } else {
-                        call.respond(HttpStatusCode.BadRequest, "Faltan datos obligatorios: 'name', 'artistId', 'albumId' o 'audio'")
-                    }
-
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    call.respond(HttpStatusCode.InternalServerError, "Error al procesar la subida: ${e.message}")
-                }
+        put("/{id}") {
+            try {
+                val id = UUID.fromString(call.parameters["id"])
+                val req = call.receive<UpdateTrackRequest>()
+                val updated = service.update(id, req)
+                if (updated != null) call.respond(updated) else call.respond(HttpStatusCode.NotFound)
+            } catch (e: IllegalArgumentException) {
+                call.respond(HttpStatusCode.BadRequest, "Invalid ID")
             }
+        }
 
-            // actualizar cancion (solo admin)
-            put("/{id}") {
-                val principal = call.principal<JWTPrincipal>()
-                val role = principal?.payload?.getClaim("role")?.asString()
-                if (role != "ADMIN") {
-                    call.respond(HttpStatusCode.Forbidden, "No tienes permisos de administrador")
-                    return@put
+        delete("/{id}") {
+            try {
+                val id = UUID.fromString(call.parameters["id"])
+                if (service.delete(id)) {
+                    call.respond(HttpStatusCode.OK, mapOf("msg" to "Track deleted"))
+                } else {
+                    call.respond(HttpStatusCode.NotFound)
                 }
-
-                val idParam = call.parameters["id"]
-                if (idParam == null) {
-                    call.respond(HttpStatusCode.BadRequest, "Falta el ID de la canción")
-                    return@put
-                }
-
-                try {
-                    val trackId = UUID.fromString(idParam)
-                    val multipart = call.receiveMultipart()
-                    var name: String? = null
-                    var duration: Int? = null
-                    var albumId: UUID? = null
-                    var artistId: UUID? = null
-                    var audioBytes: ByteArray? = null
-
-                    multipart.forEachPart { part ->
-                        when (part) {
-                            is PartData.FormItem -> {
-                                when (part.name) {
-                                    "name" -> name = part.value
-                                    "duration" -> duration = part.value.toIntOrNull()
-                                    "albumId" -> albumId = try { UUID.fromString(part.value) } catch (e: Exception) { null }
-                                    "artistId" -> artistId = try { UUID.fromString(part.value) } catch (e: Exception) { null }
-                                }
-                            }
-                            is PartData.FileItem -> {
-                                if (part.name == "audio") {
-                                    audioBytes = part.streamProvider().readBytes()
-                                }
-                            }
-                            else -> part.dispose()
-                        }
-                        part.dispose()
-                    }
-
-                    val updatedTrack = songService.updateTrack(trackId, name, duration, albumId, artistId, audioBytes)
-                    if (updatedTrack != null) {
-                        call.respond(HttpStatusCode.OK, updatedTrack)
-                    } else {
-                        call.respond(HttpStatusCode.NotFound, "Canción no encontrada")
-                    }
-
-                } catch (e: IllegalArgumentException) {
-                    call.respond(HttpStatusCode.BadRequest, "ID inválido")
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    call.respond(HttpStatusCode.InternalServerError, "Error al actualizar canción: ${e.message}")
-                }
-            }
-
-            // eliminar cancion (solo admin)
-            delete("/{id}") {
-                val principal = call.principal<JWTPrincipal>()
-                val role = principal?.payload?.getClaim("role")?.asString()
-                if (role != "ADMIN") {
-                    call.respond(HttpStatusCode.Forbidden, "No tienes permisos de administrador")
-                    return@delete
-                }
-
-                val idParam = call.parameters["id"]
-                if (idParam == null) {
-                    call.respond(HttpStatusCode.BadRequest, "Falta el ID de la canción")
-                    return@delete
-                }
-
-                try {
-                    val trackId = UUID.fromString(idParam)
-                    val deleted = songService.deleteTrack(trackId)
-                    if (deleted) {
-                        call.respond(HttpStatusCode.OK, mapOf("message" to "Canción eliminada exitosamente"))
-                    } else {
-                        call.respond(HttpStatusCode.NotFound, "Canción no encontrada")
-                    }
-                } catch (e: IllegalArgumentException) {
-                    call.respond(HttpStatusCode.BadRequest, "ID inválido")
-                } catch (e: Exception) {
-                    call.respond(HttpStatusCode.InternalServerError, "Error al eliminar canción: ${e.message}")
-                }
+            } catch (e: IllegalArgumentException) {
+                call.respond(HttpStatusCode.BadRequest, "Invalid ID")
             }
         }
     }
