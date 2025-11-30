@@ -1,14 +1,13 @@
 package com.spotify.plugins
 
-import com.spotify.repository.Albums
+import com.spotify.repository.Albumes
+import com.spotify.repository.Artistas
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.ktor.server.application.*
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.transaction
-import com.spotify.repository.Users
-import com.spotify.repository.Artists
 import com.spotify.repository.Tracks
 
 fun Application.configureDatabases() {
@@ -31,11 +30,9 @@ fun Application.configureDatabases() {
 
     val database = Database.connect(HikariDataSource(hikariConfig))
 
-    // Crear tabla Users si no existe
     transaction(database) {
-        SchemaUtils.create(Artists)
-        SchemaUtils.create(Users)
-        SchemaUtils.create(Albums)
+        SchemaUtils.create(Artistas)
+        SchemaUtils.create(Albumes)
         SchemaUtils.create(Tracks)
     }
 }
