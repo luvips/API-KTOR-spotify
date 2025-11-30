@@ -39,20 +39,8 @@ dependencies {
     implementation("org.postgresql:postgresql:42.7.2")
     implementation("com.zaxxer:HikariCP:5.1.0") // Pool de conexiones
 
-    // --- AWS S3 (Para subir imágenes) ---
-    implementation("aws.sdk.kotlin:s3:1.0.0")
-    implementation("aws.smithy.kotlin:aws-signing-default:1.0.0")
-
-    // --- Ktor Client (Para subir a S3 con URLs prefirmadas) ---
-    implementation("io.ktor:ktor-client-core:3.0.3")
-    implementation("io.ktor:ktor-client-cio:3.0.3")
-
     // --- Logging ---
-    implementation("ch.qos.logback:logback-classic:1.4.14")
-
-    // --- Tests ---
-    testImplementation("io.ktor:ktor-server-test-host-jvm:3.0.3")
-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:2.1.0")
+    implementation("ch.qos.logback:logback-classic:1.5.3")
 }
 
 tasks {
